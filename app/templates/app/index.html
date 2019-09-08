@@ -1,0 +1,296 @@
+{% extends "app/base_site.html" %}
+
+{% block title %} 1号机房 {% endblock title %}
+
+{% block stylesheets %}
+    {{ block.super }}
+{% endblock stylesheets %}
+
+{% block content %}
+    <div class="right_col" role="main">
+        <!-- top tiles -->
+        <div class="row tile_count">
+            <div class="col-md-6 tile_stats_count">
+                <span class="count_top"><i class="fa fa-user"></i> Temperature</span>
+                <div class="count" id="tem">N/A</div>
+                <p>Updated: <span id="date">N/A</span></p>
+            </div>
+            {#            <div class="col-md-6 tile_stats_count">#}
+            {#                <span class="count_top"><i class="fa fa-clock-o"></i> Humidity</span>#}
+            {#                <div class="count" id="hum">N/A</div>#}
+            {#            </div>#}
+        </div>
+
+        <div class="row">
+            <div class="col-md-12 col-sm-12 col-xs-12">
+                <div class="dashboard_graph">
+                    <div class="row x_title">
+                        <div class="col-md-10">
+                            <h3>Temperature Prediction
+                            </h3>
+                        </div>
+                        <div class="col-md-2" style="float: right">
+                            <select class="form-control" id="time_option" onchange="time_selected()">
+                                <option value="96">过去24小时</option>
+                                <option value="672">过去7天</option>
+                                <option value="1440">过去15天</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12 col-sm-12 col-xs-12" id="table_container">
+                        <div id="tem_chart" style="width: 800px;height:400px;"></div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+        </div>
+        <!-- /top tiles -->
+        <div class="row">
+            <div class="col-md-12 col-sm-12 col-xs-12">
+                <div class="dashboard_graph">
+
+                    <div class="row x_title">
+                        <div class="col-md-6">
+                            <h3>Live Temperature
+                            </h3>
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-12 col-sm-12 col-xs-12" id="table_container">
+                        <div id="live_tem" style="width: 800px;height:400px;"></div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+        </div>
+        <div class="clearfix"></div>
+
+        <br/>
+
+    </div>
+{% endblock content %}
+
+{% block javascripts %}
+    {{ block.super }}
+    <script src="/static/vendors/echarts/dist/echarts.min.js"></script>
+    <!-- DateJS -->
+    <script src="/static/vendors/DateJS/build/date.js"></script>
+    <script src="/static/vendors/mqttws31.min.js" type="text/javascript"></script>
+    <script src="/static/vendors/laydate/laydate.js" type="text/javascript"></script>
+
+    <script>
+        var myChart = echarts.init(document.getElementById('tem_chart'));
+        var liveTemChart = echarts.init(document.getElementById('live_tem'));
+        var option = {
+            dataZoom: [{
+                type: 'inside', xAxisIndex: [0], filterMode: 'filter',
+                start: 0, end: 100
+            }],
+            legend: {data: ["实际温度", "预测温度"], bottom: 80},
+            grid: {x: '25px', y: '5px', x2: '10px', y2: '75px'},
+            tooltip: {trigger: 'axis', axisPointer: {animation: false}},
+            xAxis: {type: 'time', splitLine: {show: false}},
+            yAxis: {
+                type: 'value',
+                splitLine: {lineStyle: {color: 'rgba(0,0,0,0.1)'}}
+            },
+            series: [{
+                name: '实际温度', type: 'line',
+                smooth: true, showSymbol: false, hoverAnimation: false,
+                itemStyle: {
+                    normal: {
+                        color: '#4fd6d2'
+                    }
+                },
+                areaStyle: {
+                    normal: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                            offset: 0,
+                            color: 'rgba(0,247,195,0.24)'
+                        }, {
+                            offset: 1,
+                            color: 'rgba(255,255,255,0)'
+                        }])
+                    }
+                },
+            }, {
+                name: '预测温度', type: 'line', smooth: true, showSymbol: false, hoverAnimation: false,
+                itemStyle: {
+                    normal: {
+                        width: 2, type: 'solid', color: "rgba(201,37,41,0.50)"
+                    },
+                },
+            },
+                {#{#}
+                {#    name: 'Last prediction', type: 'line', smooth: true, showSymbol: false, hoverAnimation: false,#}
+                {#    itemStyle: {#}
+                {#        normal: {#}
+                {#            width: 2, type: 'solid', color: "rgba(201,193,57,0.50)"#}
+                {#        },#}
+                {#    },#}
+                {# },#}
+            ]
+        };
+        var liveTemOption = {
+            dataZoom: [{
+                type: 'inside', xAxisIndex: [0], filterMode: 'filter',
+                start: 0, end: 100
+            }],
+            legend: {data: ["Sensor 1", "Sensor 2", "Sensor 3", "Average"], bottom: 80},
+            grid: {x: '25px', y: '5px', x2: '10px', y2: '75px'},
+            tooltip: {trigger: 'axis', axisPointer: {animation: false}},
+            xAxis: {type: 'time', splitLine: {show: false},},
+            yAxis: {
+                type: 'value',
+                splitLine: {lineStyle: {color: 'rgba(0,0,0,0.1)'}}
+            },
+            series: [{
+                name: 'Sensor 1', type: 'line',
+                smooth: true, showSymbol: false, hoverAnimation: false,
+                itemStyle: {normal: {color: '#4fd6d2'}},
+            }, {
+                name: 'Sensor 2', type: 'line', smooth: true, showSymbol: false, hoverAnimation: false,
+                itemStyle: {normal: {color: "rgba(201,37,41,0.50)"},},
+            }, {
+                name: 'Sensor 3', type: 'line', smooth: true, showSymbol: false, hoverAnimation: false,
+                itemStyle: {normal: {color: "rgba(201,193,57,0.50)"},},
+            }, {
+                name: 'Average', type: 'line', smooth: true, showSymbol: false, hoverAnimation: false,
+                itemStyle: {normal: {color: "rgba(1,1,0,0.67)"},},
+            },
+            ]
+        };
+
+
+        var container = document.getElementById("tem_chart");
+        var liveTemContainer = document.getElementById("live_tem");
+        var resize_container = function () {
+            container.style.width = document.getElementById("table_container").offsetWidth + 'px';
+            liveTemContainer.style.width = document.getElementById("table_container").offsetWidth + 'px';
+        };
+
+        myChart.setOption(option);
+        liveTemChart.setOption(liveTemOption);
+        resize_container();
+        myChart.resize();
+        liveTemChart.resize();
+
+        window.onresize = function () {
+            resize_container();
+            myChart.resize();
+            liveTemChart.resize();
+        };
+
+        function get_time_opt() {
+            var myselect = document.getElementById("time_option");
+            var myselect_index = myselect.selectedIndex;
+            return myselect.options[myselect_index].value
+        }
+
+        function refresh_table() {
+            $.getJSON("/data_fresh_tem_table", {"pred_szie": get_time_opt()}, function (data) {
+                var times = [];
+
+                for (index in data.date) {
+                    var time1 = new Date(data.date[index] * 1000);
+                    times.push([time1, data.value[index]]);
+                    {#predict.push([time, data.value[index]+1])#}
+                }
+                var predict = [];
+
+                for (index in data.pred_date) {
+                    var time2 = new Date(data.pred_date[index] * 1000);
+                    predict.push([time2, data.pred_value[index]])
+                }
+
+                {#for (index in data.pred_m_date) {#}
+                {#    var time3 = new Date(data.pred_m_date[index] * 1000);#}
+                {#    predict_30.push([time3, data.pred_m_value[index]])#}
+                {# } #}
+                myChart.setOption({
+                    yAxis: {
+                        min: data.min,
+                        max: data.max,
+                    },
+                    series: [{data: times}, {data: predict}]
+                })
+            })
+        }
+
+        function refresh() {
+            $.getJSON("/data_fresh", function (data) {
+                document.getElementById("tem").innerText = data.tem;
+                document.getElementById("date").innerText = date_transoform(data.time);
+            });
+
+        }
+
+        function refresh_live_tem() {
+            $.getJSON("/data_live_tem", function (data) {
+                var s1 = [];
+
+                for (index in data.time) {
+                    var time1 = new Date(data.time[index] * 1000);
+                    s1.push([time1, data.s1[index]]);
+                }
+                var s2 = [];
+                for (index in data.s2) {
+                    var time2 = new Date(data.time[index] * 1000);
+                    s2.push([time2, data.s2[index]])
+                }
+
+                var s3 = [];
+                for (index in data.s3) {
+                    var time3 = new Date(data.time[index] * 1000);
+                    s3.push([time3, data.s3[index]])
+                }
+
+                var s4 = [];
+                for (index in data.cleand) {
+                    var time4 = new Date(data.time[index] * 1000);
+                    s4.push([time4, data.cleand[index]])
+                }
+                liveTemChart.setOption({
+                    yAxis: {
+                        min: data.min,
+                        max: data.max,
+                    },
+                    series: [{data: s1}, {data: s2}, {data: s3}, {data: s4}]
+                })
+            })
+        }
+
+        $(document).ready(function () {
+            refresh();
+            refresh_table();
+            refresh_live_tem();
+            setInterval(refresh, 1000);
+            setInterval(refresh_live_tem, 1000);
+            setInterval(refresh_table, 1000 * 60);
+        });
+
+        function date_transoform(unix_timestamp) {
+            var date = new Date(unix_timestamp);
+            // Hours part from the timestamp
+            var hours = date.getHours();
+            // Minutes part from the timestamp
+            var minutes = "0" + date.getMinutes();
+            // Seconds part from the timestamp
+            var seconds = "0" + date.getSeconds();
+            // Will display time in 10:30:23 format
+            var str = hours + ':' + minutes.substr(-2) + ':' + seconds.substr(-2);
+            return str
+        }
+
+    </script>
+
+    <script>
+        function time_selected() {
+            refresh_table()
+        }
+
+    </script>
+
+{% endblock javascripts %}
